@@ -11,11 +11,11 @@ app.use(express.json());
 
 
 // 🔥 핵심: client 폴더 (루트 기준)
-app.use(express.static(path.join(process.cwd(), "client")));
+app.use(express.static(path.join(__dirname, "..", "client")));
 
 
 // 🔥 uploads 폴더 (루트 기준)
-const uploadDir = path.join(process.cwd(), "uploads");
+const uploadDir = path.join(__dirname, "..", "uploads");
 if (!fs.existsSync(uploadDir)) {
   fs.mkdirSync(uploadDir, { recursive: true });
 }
@@ -33,11 +33,11 @@ let collectedRecords = [];
 // =======================
 
 app.get("/", (req, res) => {
-  res.sendFile(path.join(process.cwd(), "client", "index.html"));
+ res.sendFile(path.join(__dirname, "..", "client", "index.html"));
 });
 
 app.get("/result.html", (req, res) => {
-  res.sendFile(path.join(process.cwd(), "client", "result.html"));
+ res.sendFile(path.join(__dirname, "..", "client", "index.html"));
 });
 
 
@@ -46,7 +46,7 @@ app.get("/result.html", (req, res) => {
 // =======================
 
 app.get("/extension/download", (req, res) => {
-  const zipPath = path.join(process.cwd(), "extension.zip");
+  const zipPath = path.join(__dirname, "..", "extension.zip");
 
   if (!fs.existsSync(zipPath)) {
     return res.status(404).send("extension.zip 파일이 없습니다.");
