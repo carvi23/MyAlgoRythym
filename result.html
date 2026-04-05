@@ -1,0 +1,65 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>분석 결과 - MyAlgoRythym</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <div class="page">
+    <header class="topbar">
+      <div class="logo">MyAlgoRythym</div>
+      <a class="login-btn" href="/">메인으로</a>
+    </header>
+
+    <main class="result-page-wrap">
+      <section class="result-section result-page-visible">
+        <div class="result-card">
+          <div class="result-header">
+            <div class="result-label">대표 분석 결과</div>
+            <h2 id="resultMainTitle">내 알고리즘 요약</h2>
+            <p class="result-subtext" id="resultSubText"></p>
+          </div>
+
+          <div class="result-top-summary" id="platformSummary"></div>
+
+          <div class="signal-circles">
+            <div class="signal-circle-card">
+              <div class="signal-circle" id="circle1Value">-</div>
+              <div class="signal-title" id="circle1Title">콘텐츠 성향</div>
+              <div class="signal-desc" id="circle1Desc">분석 전</div>
+            </div>
+
+            <div class="signal-circle-card">
+              <div class="signal-circle" id="circle2Value">-</div>
+              <div class="signal-title" id="circle2Title">관심사 편향</div>
+              <div class="signal-desc" id="circle2Desc">분석 전</div>
+            </div>
+
+            <div class="signal-circle-card">
+              <div class="signal-circle" id="circle3Value">-</div>
+              <div class="signal-title" id="circle3Title">추천 영향도</div>
+              <div class="signal-desc" id="circle3Desc">분석 전</div>
+            </div>
+          </div>
+
+          <div class="result-detail-grid">
+            <div class="result-detail-box">
+              <h3>핵심 요약</h3>
+              <ul id="keySummaryList"></ul>
+            </div>
+
+            <div class="result-detail-box">
+              <h3>추천 행동</h3>
+              <ul id="actionList"></ul>
+            </div>
+          </div>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <script src="script.js"></script>
+</body>
+</html>
