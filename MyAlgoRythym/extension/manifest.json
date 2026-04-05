@@ -1,0 +1,32 @@
+{
+  "manifest_version": 3,
+  "name": "MyAlgoRythym Collector",
+  "version": "1.0",
+  "description": "지원 플랫폼 기록을 서버로 전송합니다.",
+  "permissions": ["activeTab"],
+  "host_permissions": [
+    "https://myalgorythym.onrender.com/*",
+    "https://www.youtube.com/*",
+    "https://*.sooplive.co.kr/*",
+    "https://*.afreecatv.com/*",
+    "https://www.twitch.tv/*",
+    "https://www.instagram.com/*",
+    "https://www.tiktok.com/*"
+  ],
+  "background": {
+    "service_worker": "background.js"
+  },
+  "content_scripts": [
+    {
+      "matches": [
+        "https://www.youtube.com/*",
+        "https://*.sooplive.co.kr/*",
+        "https://*.afreecatv.com/*",
+        "https://www.twitch.tv/*",
+        "https://www.instagram.com/*",
+        "https://www.tiktok.com/*"
+      ],
+      "js": ["content.js"]
+    }
+  ]
+}
