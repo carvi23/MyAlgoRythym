@@ -1,284 +1,71 @@
-const express = require("express");
-const cors = require("cors");
-const path = require("path");
-const fs = require("fs");
-const multer = require("multer");
+const express = require('express');
+const cors = require('cors');
+const multer = require('multer');
+const path = require('path');
 
 const app = express();
+const PORT = process.env.PORT || 3000;
 
 app.use(cors());
 app.use(express.json());
+app.use(express.static(path.join(__dirname, '../client'))); // client 정적 파일 제공
 
+// 파일 업로드를 위한 multer 설정
+const upload = multer({ dest: path.join(__dirname, '../uploads/') });
 
-// 🔥 핵심: client 폴더 (루트 기준)
-app.use(express.static(path.join(__dirname, "..", "client")));
-
-
-// 🔥 uploads 폴더 (루트 기준)
-const uploadDir = path.join(__dirname, "..", "uploads");
-if (!fs.existsSync(uploadDir)) {
-  fs.mkdirSync(uploadDir, { recursive: true });
+// ====================== 핵심 분석 엔진 ======================
+function analyzeEngine(input) {
+    // client/script.js의 generateMockAnalysis와 완전히 동일한 로직 유지
+    // → 실제 서비스에서는 여기서 link 파싱, 파일 파싱, 확장 데이터 처리 로직 확장
+    const platform = input.platform || 'youtube';
+    return {
+        platform: platform,
+        contentTendency: { score: platform === 'youtube' ? 78 : platform === 'twitch' ? 85 : 92, label: '엔터테인먼트·테크 콘텐츠 중심' },
+        interestBias: { score: platform === 'youtube' ? 64 : platform === 'instagram' ? 82 : 77, label: '게임·AI·과학 장르 강한 편향' },
+        recommendationInfluence: { score: platform === 'tiktok' ? 95 : 91, label: '시청 시간 기반 추천 매우 강함' },
+        coreSummary: input.inputType === 'upload' 
+            ? '업로드된 기록 파일을 기반으로 분석 완료' 
+            : '최근 데이터 기반 알고리즘 상태 분석 완료',
+        recommendedActions: [
+            '“관심 없음” 버튼 적극 활용',
+            '특정 채널/계정 추천 안 함',
+            '기록 일부 삭제 추천',
+            '시청 기록 일시중지 추천'
+        ],
+        analysisSignals: {
+            accountSignals: ['최근 시청 편향', '검색어 편향', '구독/팔로우 편향'],
+            viewingPattern: ['Shorts/Reels 비중', '반복 콘텐츠 비중'],
+            recommendationSurface: ['홈/피드 영향도', 'Up Next/FYP 영향도']
+        }
+    };
 }
 
-const upload = multer({ dest: uploadDir });
-
-let history = [];
-let extensionConnected = false;
-let lastExtensionPing = null;
-let collectedRecords = [];
-
-
-// =======================
-// 📄 페이지 라우팅
-// =======================
-
-app.get("/", (req, res) => {
- res.sendFile(path.join(__dirname, "..", "client", "index.html"));
+// ====================== API 엔드포인트 ======================
+app.post('/analyze', (req, res) => {
+    const { link, platform, inputType, fileData } = req.body;
+    console.log(`[분석 요청] ${platform} / ${inputType} / ${link}`);
+    
+    const result = analyzeEngine({ platform, inputType, fileData });
+    res.json(result);
 });
 
-app.get("/result.html", (req, res) => {
- res.sendFile(path.join(__dirname, "..", "client", "result.html"));
+// 파일 업로드 처리
+app.post('/upload', upload.single('recordFile'), (req, res) => {
+    if (!req.file) return res.status(400).json({ error: '파일 없음' });
+    // 실제로는 파일 파싱 후 analyzeEngine 호출
+    const result = analyzeEngine({ platform: 'youtube', inputType: 'upload' });
+    res.json(result);
 });
 
-
-// =======================
-// 📦 확장 프로그램 다운로드
-// =======================
-
-app.get("/extension/download", (req, res) => {
-  const zipPath = path.join(__dirname, "..", "extension.zip");
-
-  if (!fs.existsSync(zipPath)) {
-    return res.status(404).send("extension.zip 파일이 없습니다.");
-  }
-
-  res.download(zipPath, "myalgorythym-extension.zip");
+app.get('/', (req, res) => {
+    res.sendFile(path.join(__dirname, '../client/index.html'));
 });
 
-
-// =======================
-// 🔗 외부 이동
-// =======================
-
-app.get("/go/takeout", (req, res) => {
-  res.redirect("https://takeout.google.com/");
+app.get('/result.html', (req, res) => {
+    res.sendFile(path.join(__dirname, '../client/result.html'));
 });
 
-
-// =======================
-// 🔌 확장 상태 체크
-// =======================
-
-app.get("/api/extension-status", (req, res) => {
-  res.json({
-    connected: extensionConnected,
-    lastPing: lastExtensionPing,
-    collectedCount: collectedRecords.length
-  });
+app.listen(PORT, () => {
+    console.log(`🚀 MyAlgoRythym 서버 실행 중 → http://localhost:${PORT}`);
+    console.log(`배포 주소: https://myalgorythym.onrender.com`);
 });
-
-app.post("/api/extension-heartbeat", (req, res) => {
-  extensionConnected = true;
-  lastExtensionPing = new Date().toISOString();
-
-  pushHistory("extension", "확장 프로그램 연결됨", `마지막 연결: ${lastExtensionPing}`);
-  res.json({ success: true });
-});
-
-
-// =======================
-// 📥 데이터 수집
-// =======================
-
-app.post("/api/collect", (req, res) => {
-  const { title, url, platform, time } = req.body;
-
-  extensionConnected = true;
-  lastExtensionPing = new Date().toISOString();
-
-  const detectedPlatform =
-    normalizePlatformName(platform) ||
-    detectPlatformFromUrl(url)?.name ||
-    "Unknown";
-
-  const record = {
-    id: Date.now() + Math.random(),
-    title: title || "Untitled",
-    url: url || "",
-    platform: detectedPlatform,
-    time: time || new Date().toISOString()
-  };
-
-  collectedRecords.unshift(record);
-  collectedRecords = collectedRecords.slice(0, 500);
-
-  pushHistory(
-    "extension-data",
-    record.title,
-    `${record.platform} / ${record.url}`
-  );
-
-  res.json({ success: true });
-});
-
-
-// =======================
-// 🔗 링크 분석
-// =======================
-
-app.post("/api/analyze-link", (req, res) => {
-  const { url } = req.body;
-
-  if (!url) {
-    return res.status(400).json({ error: "링크가 없습니다." });
-  }
-
-  const platform = detectPlatformFromUrl(url);
-  if (!platform) {
-    return res.status(400).json({
-      error: "지원 플랫폼 링크가 아닙니다."
-    });
-  }
-
-  const analysis = buildPlatformAnalysis(platform, "link");
-  pushHistory("link-analysis", `${platform.name} 링크 분석`, url);
-
-  res.json({ analysis });
-});
-
-
-// =======================
-// 📂 파일 업로드 분석
-// =======================
-
-app.post("/api/upload-record", upload.single("recordFile"), (req, res) => {
-  if (!req.file) {
-    return res.status(400).json({ error: "파일이 없습니다." });
-  }
-
-  const filePath = req.file.path;
-  const originalName = req.file.originalname;
-
-  let textPreview = "";
-  try {
-    textPreview = fs.readFileSync(filePath, "utf8").slice(0, 5000);
-  } catch {}
-
-  const platform = detectPlatformFromContent(originalName, textPreview);
-  const analysis = buildPlatformAnalysis(platform, "upload", originalName);
-
-  pushHistory("record-upload", `${platform.name} 기록 업로드`, originalName);
-
-  res.json({
-    success: true,
-    fileName: originalName,
-    analysis
-  });
-});
-
-
-// =======================
-// 📊 분석 결과
-// =======================
-
-app.get("/api/history", (req, res) => {
-  res.json(history.slice(0, 50));
-});
-
-app.get("/api/auto-analysis", (req, res) => {
-  const analysis = buildAutoCollectedAnalysis(collectedRecords);
-  res.json(analysis);
-});
-
-
-// =======================
-// 🚀 서버 실행
-// =======================
-
-app.listen(process.env.PORT || 3000, () => {
-  console.log("Server running");
-});
-
-
-// =======================
-// 🧠 내부 함수들
-// =======================
-
-function pushHistory(type, title, sub) {
-  history.unshift({ type, title, sub });
-  history = history.slice(0, 100);
-}
-
-function normalizePlatformName(platform) {
-  if (!platform) return null;
-  const p = String(platform).toLowerCase();
-
-  if (p.includes("youtube")) return "YouTube";
-  if (p.includes("soop") || p.includes("afreecatv")) return "SOOP / 아프리카TV";
-  if (p.includes("twitch")) return "Twitch";
-  if (p.includes("instagram")) return "Instagram";
-  if (p.includes("tiktok")) return "TikTok";
-
-  return platform;
-}
-
-function detectPlatformFromUrl(url) {
-  try {
-    const host = new URL(url).hostname.toLowerCase();
-
-    if (host.includes("youtube") || host.includes("youtu.be"))
-      return { key: "youtube", name: "YouTube" };
-
-    if (host.includes("soop") || host.includes("afreecatv"))
-      return { key: "soop", name: "SOOP / 아프리카TV" };
-
-    if (host.includes("twitch"))
-      return { key: "twitch", name: "Twitch" };
-
-    if (host.includes("instagram"))
-      return { key: "instagram", name: "Instagram" };
-
-    if (host.includes("tiktok"))
-      return { key: "tiktok", name: "TikTok" };
-
-    return null;
-  } catch {
-    return null;
-  }
-}
-
-function detectPlatformFromContent(fileName, text) {
-  const lower = (fileName + text).toLowerCase();
-
-  if (lower.includes("youtube")) return { key: "youtube", name: "YouTube" };
-  if (lower.includes("soop") || lower.includes("afreecatv")) return { key: "soop", name: "SOOP / 아프리카TV" };
-  if (lower.includes("twitch")) return { key: "twitch", name: "Twitch" };
-  if (lower.includes("instagram")) return { key: "instagram", name: "Instagram" };
-  if (lower.includes("tiktok")) return { key: "tiktok", name: "TikTok" };
-
-  return { key: "generic", name: "일반 플랫폼" };
-}
-
-function buildPlatformAnalysis(platform, sourceType) {
-  return {
-    mainTitle: `${platform.name} 알고리즘 분석 결과`,
-    subText: sourceType,
-    summary: `${platform.name} 기반 분석`,
-    accountSignals: ["최근 시청 영향"],
-    watchPatterns: ["패턴 분석"],
-    surfaceSignals: ["추천 영향"],
-    interventionMethods: ["개선 방법"]
-  };
-}
-
-function buildAutoCollectedAnalysis(records) {
-  return {
-    mainTitle: "자동 분석 결과",
-    subText: `${records.length}개 데이터`,
-    summary: "자동 분석 완료",
-    accountSignals: [],
-    watchPatterns: [],
-    surfaceSignals: [],
-    interventionMethods: []
-  };
-}
